@@ -1,7 +1,14 @@
-const { REST, Routes, SlashCommandBuilder } = require("discord.js");
+const {
+    REST,
+    Routes,
+    SlashCommandBuilder,
+    PermissionFlagsBits
+} = require("discord.js");
 
 module.exports = async function registrarComandos() {
+
     const commands = [
+
         new SlashCommandBuilder()
             .setName("configurar-pix")
             .setDescription("Configura a chave PIX do bot.")
@@ -78,6 +85,9 @@ module.exports = async function registrarComandos() {
         new SlashCommandBuilder()
             .setName("confirmar-pagamento")
             .setDescription("Confirma o pagamento de um participante.")
+            .setDefaultMemberPermissions(
+                PermissionFlagsBits.Administrator
+            )
             .addUserOption(option =>
                 option
                     .setName("usuario")
@@ -95,6 +105,23 @@ module.exports = async function registrarComandos() {
         new SlashCommandBuilder()
             .setName("sortear")
             .setDescription("Realiza o sorteio da rifa.")
+            .setDefaultMemberPermissions(
+                PermissionFlagsBits.Administrator
+            )
+            .addIntegerOption(option =>
+                option
+                    .setName("rifa")
+                    .setDescription("ID da rifa")
+                    .setMinValue(1)
+                    .setRequired(true)
+            ),
+
+        new SlashCommandBuilder()
+            .setName("painel-admin")
+            .setDescription("Abre o painel administrativo de uma rifa.")
+            .setDefaultMemberPermissions(
+                PermissionFlagsBits.Administrator
+            )
             .addIntegerOption(option =>
                 option
                     .setName("rifa")
@@ -102,6 +129,7 @@ module.exports = async function registrarComandos() {
                     .setMinValue(1)
                     .setRequired(true)
             )
+
     ].map(command => command.toJSON());
 
     const rest = new REST({
@@ -117,4 +145,5 @@ module.exports = async function registrarComandos() {
             body: commands
         }
     );
+
 };
