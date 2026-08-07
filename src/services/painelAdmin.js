@@ -41,20 +41,12 @@ module.exports = async (client, interaction) => {
     }
 
     // Botão sortear
-    if (
-        interaction.isButton() &&
-        interaction.customId.startsWith("painel_sortear_")
-    ) {
-        rifaId = Number(
-            interaction.customId.replace("painel_sortear_", "")
-        );
-
-        // Vamos ligar o sorteio no próximo passo
-        return interaction.reply({
-            content: `🏆 Preparando sorteio da rifa #${rifaId}...`,
-            flags: MessageFlags.Ephemeral
-        });
-    }
+   if (
+    interaction.isButton() &&
+    interaction.customId.startsWith("painel_sortear_")
+) {
+    return;
+}
 
     if (!rifaId) {
         return interaction.reply({
