@@ -39,8 +39,8 @@ module.exports = async (client, interaction) => {
         }
 
         if (interaction.customId.startsWith("painel_sortear_")) {
-            return painelAdmin(client, interaction);
-        }
+    return sortear(client, interaction);
+}
 
         if (interaction.customId.startsWith("comprovante_")) {
             return interaction.reply({
