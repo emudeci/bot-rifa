@@ -16,6 +16,7 @@ const aprovarPagamento = require("../services/aprovarPagamento");
 const recusarPagamento = require("../services/recusarPagamento");
 const cancelarReserva = require("../services/cancelarReserva");
 const configurarMeta = require("../services/configurarMeta");
+const painelAdmin = require("../services/painelAdmin");
 
 module.exports = async (client, interaction) => {
 
@@ -28,10 +29,18 @@ module.exports = async (client, interaction) => {
         if (interaction.customId.startsWith("recusar_")) {
             return recusarPagamento(client, interaction);
         }
-        
+
         if (interaction.customId.startsWith("cancelar_")) {
-    return cancelarReserva(client, interaction);
-}
+            return cancelarReserva(client, interaction);
+        }
+
+        if (interaction.customId.startsWith("painel_atualizar_")) {
+            return painelAdmin(client, interaction);
+        }
+
+        if (interaction.customId.startsWith("painel_sortear_")) {
+            return painelAdmin(client, interaction);
+        }
 
         if (interaction.customId.startsWith("comprovante_")) {
             return interaction.reply({
@@ -41,6 +50,7 @@ module.exports = async (client, interaction) => {
         }
 
         if (interaction.customId.startsWith("comprar_")) {
+
             const rifaId = interaction.customId.split("_")[1];
 
             const modal = new ModalBuilder()
@@ -62,6 +72,7 @@ module.exports = async (client, interaction) => {
     }
 
     if (interaction.isModalSubmit()) {
+
         if (interaction.customId.startsWith("modal_comprar_")) {
             return comprarRifa(client, interaction);
         }
@@ -70,6 +81,7 @@ module.exports = async (client, interaction) => {
     if (!interaction.isChatInputCommand()) return;
 
     switch (interaction.commandName) {
+
         case "configurar-pix":
             return configurarPix(interaction);
 
@@ -78,9 +90,9 @@ module.exports = async (client, interaction) => {
 
         case "criar-rifa":
             return criarRifa(client, interaction);
-            
-            case "configurar-meta":
-    return configurarMeta(client, interaction);
+
+        case "configurar-meta":
+            return configurarMeta(client, interaction);
 
         case "meus-numeros":
             return meusNumeros(interaction);
@@ -90,5 +102,8 @@ module.exports = async (client, interaction) => {
 
         case "sortear":
             return sortear(client, interaction);
+
+        case "painel-admin":
+            return painelAdmin(client, interaction);
     }
 };
