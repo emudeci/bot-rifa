@@ -8,14 +8,43 @@ const db = require("../database/database");
 
 module.exports = (client, interaction) => {
 
-    if (!interaction.member.permissions.has(PermissionFlagsBits.Administrator)) {
+    if (
+        !interaction.member.permissions.has(
+            PermissionFlagsBits.Administrator
+        )
+    ) {
         return interaction.reply({
             content: "❌ Apenas administradores.",
             flags: MessageFlags.Ephemeral
         });
     }
 
-    const rifaId = interaction.options.getInteger("rifa");
+    let rifaId;
+
+    // Comando /sortear
+    if (interaction.isChatInputCommand()) {
+        rifaId = interaction.options.getInteger("rifa");
+    }
+
+    // Botão do Painel Admin
+    if (
+        interaction.isButton() &&
+        interaction.customId.startsWith("painel_sortear_")
+    ) {
+        rifaId = Number(
+            interaction.customId.replace(
+                "painel_sortear_",
+                ""
+            )
+        );
+    }
+
+    if (!rifaId) {
+        return interaction.reply({
+            content: "❌ ID da rifa inválido.",
+            flags: MessageFlags.Ephemeral
+        });
+    }
 
     db.get(
         `
@@ -42,7 +71,17 @@ module.exports = (client, interaction) => {
                 });
             }
 
-            const meta = rifa.meta || rifa.quantidade;
+            // Impede sortear novamente
+            if (rifa.status === "finalizada") {
+                return interaction.reply({
+                    content: "❌ Essa rifa já foi sorteada.",
+                    flags: MessageFlags.Ephemeral
+                });
+            }
+
+            const meta =
+                rifa.meta ||
+                rifa.quantidade;
 
             db.get(
                 `
@@ -64,25 +103,36 @@ module.exports = (client, interaction) => {
                         });
                     }
 
-                    const pagos = resultado.pagos || 0;
-                    const faltam = Math.max(0, meta - pagos);
-                    const porcentagem = Math.min(
-                        100,
-                        Math.floor((pagos / meta) * 100)
+                    const pagos =
+                        resultado.pagos || 0;
+
+                    const faltam = Math.max(
+                        0,
+                        meta - pagos
                     );
 
+                    const porcentagem = Math.min(
+                        100,
+                        Math.floor(
+                            (pagos / meta) * 100
+                        )
+                    );
+
+                    // Meta ainda não atingida
                     if (pagos < meta) {
+
                         return interaction.reply({
                             content:
-                                `❌ O sorteio ainda não foi liberado.\n` +
-                                `🎯 Meta: ${meta}\n` +
-                                `✅ Pagos: ${pagos}\n` +
-                                `📊 Progresso: ${porcentagem}%\n` +
-                                `⏳ Faltam: ${faltam} números pagos.`,
+                                `❌ O sorteio ainda não foi liberado.\n\n` +
+                                `🎯 Meta: **${meta}**\n` +
+                                `✅ Pagos: **${pagos}**\n` +
+                                `📊 Progresso: **${porcentagem}%**\n` +
+                                `⏳ Faltam: **${faltam} números pagos**.`,
                             flags: MessageFlags.Ephemeral
                         });
                     }
 
+                    // SORTEIA SOMENTE NÚMEROS PAGOS
                     db.get(
                         `
                         SELECT *
@@ -112,9 +162,12 @@ module.exports = (client, interaction) => {
                                 });
                             }
 
-                            const usuario = await client.users
-                                .fetch(numero.usuario_id)
-                                .catch(() => null);
+                            const usuario =
+                                await client.users
+                                    .fetch(
+                                        numero.usuario_id
+                                    )
+                                    .catch(() => null);
 
                             if (!usuario) {
                                 return interaction.reply({
@@ -123,31 +176,41 @@ module.exports = (client, interaction) => {
                                 });
                             }
 
-                            const embed = new EmbedBuilder()
-                                .setColor("Gold")
-                                .setTitle("🏆 Sorteio Finalizado")
-                                .setDescription(`🎉 Parabéns, <@${usuario.id}>!`)
-                                .addFields(
-                                    {
-                                        name: "🎟 Número sorteado",
-                                        value: String(numero.numero).padStart(3, "0"),
-                                        inline: true
-                                    },
-                                    {
-                                        name: "👤 Vencedor",
-                                        value: `<@${usuario.id}>`,
-                                        inline: true
-                                    },
-                                    {
-                                        name: "🎯 Meta alcançada",
-                                        value: `${pagos}/${meta}`,
-                                        inline: true
-                                    }
-                                )
-                                .setFooter({
-                                    text: `Rifa #${rifaId}`
-                                })
-                                .setTimestamp();
+                            const embed =
+                                new EmbedBuilder()
+                                    .setColor("Gold")
+                                    .setTitle(
+                                        "🏆 Sorteio Finalizado"
+                                    )
+                                    .setDescription(
+                                        `🎉 Parabéns, <@${usuario.id}>!`
+                                    )
+                                    .addFields(
+                                        {
+                                            name: "🎟 Número sorteado",
+                                            value: String(
+                                                numero.numero
+                                            ).padStart(
+                                                3,
+                                                "0"
+                                            ),
+                                            inline: true
+                                        },
+                                        {
+                                            name: "👤 Vencedor",
+                                            value: `<@${usuario.id}>`,
+                                            inline: true
+                                        },
+                                        {
+                                            name: "🎯 Meta alcançada",
+                                            value: `${pagos}/${meta}`,
+                                            inline: true
+                                        }
+                                    )
+                                    .setFooter({
+                                        text: `Rifa #${rifaId}`
+                                    })
+                                    .setTimestamp();
 
                             db.run(
                                 `
@@ -157,6 +220,7 @@ module.exports = (client, interaction) => {
                                 `,
                                 [rifaId],
                                 (err) => {
+
                                     if (err) {
                                         console.error(err);
                                     }
