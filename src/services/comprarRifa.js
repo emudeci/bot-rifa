@@ -13,14 +13,23 @@ module.exports = async (client, interaction) => {
         interaction.customId.split("_")[2]
     );
 
-    const quantidade = Number.parseInt(
-        interaction.fields.getTextInputValue("quantidade"),
-        10
-    );
+    const textoNumeros =
+        interaction.fields.getTextInputValue("numeros");
 
-    if (!Number.isInteger(quantidade) || quantidade <= 0) {
+    const numerosEscolhidos = [
+        ...new Set(
+            textoNumeros
+                .split(/[\s,;]+/)
+                .map(numero => Number.parseInt(numero, 10))
+                .filter(numero => Number.isInteger(numero))
+        )
+    ];
+
+    if (numerosEscolhidos.length === 0) {
         return interaction.reply({
-            content: "❌ Quantidade inválida.",
+            content:
+                "❌ Digite pelo menos um número válido.\n\n" +
+                "Exemplo: `15, 28, 104, 587`",
             flags: MessageFlags.Ephemeral
         });
     }
@@ -45,34 +54,93 @@ module.exports = async (client, interaction) => {
                 });
             }
 
+            const invalidos = numerosEscolhidos.filter(
+                numero =>
+                    numero < 1 ||
+                    numero > rifa.quantidade
+            );
+
+            if (invalidos.length > 0) {
+                return interaction.editReply({
+                    content:
+                        "❌ Alguns números não existem nessa rifa:\n" +
+                        invalidos
+                            .map(numero =>
+                                `\`${numero}\``
+                            )
+                            .join(", ")
+                });
+            }
+
+            const placeholders =
+                numerosEscolhidos
+                    .map(() => "?")
+                    .join(",");
+
             db.all(
                 `
-                SELECT id, numero
+                SELECT id, numero, status
                 FROM numeros
-                WHERE rifa_id=?
-                AND status='livre'
-                ORDER BY RANDOM()
-                LIMIT ?
+                WHERE
+                    rifa_id=?
+                    AND numero IN (${placeholders})
                 `,
-                [rifaId, quantidade],
-                (err, numeros) => {
+                [
+                    rifaId,
+                    ...numerosEscolhidos
+                ],
+                (err, numerosBanco) => {
 
                     if (err) {
                         console.error(err);
 
                         return interaction.editReply({
-                            content: "❌ Erro ao buscar números."
+                            content:
+                                "❌ Erro ao verificar os números."
                         });
                     }
 
-                    if (numeros.length < quantidade) {
+                    const numerosOcupados =
+                        numerosBanco
+                            .filter(
+                                item =>
+                                    item.status !== "livre"
+                            )
+                            .map(
+                                item =>
+                                    item.numero
+                            );
+
+                    if (numerosOcupados.length > 0) {
                         return interaction.editReply({
-                            content: "❌ Não existem números suficientes."
+                            content:
+                                "❌ Esses números já estão reservados ou pagos:\n\n" +
+                                numerosOcupados
+                                    .map(numero =>
+                                        `🎟 ${String(numero)
+                                            .padStart(3, "0")}`
+                                    )
+                                    .join("\n") +
+                                "\n\nEscolha outros números."
                         });
                     }
+
+                    if (
+                        numerosBanco.length !==
+                        numerosEscolhidos.length
+                    ) {
+                        return interaction.editReply({
+                            content:
+                                "❌ Um ou mais números não foram encontrados."
+                        });
+                    }
+
+                    const quantidade =
+                        numerosEscolhidos.length;
 
                     const valorTotal =
-                        quantidade * Number(rifa.valor);
+                        quantidade *
+                        Number(rifa.valor);
 
                     db.run(
                         `
@@ -95,19 +163,24 @@ module.exports = async (client, interaction) => {
                                 console.error(err);
 
                                 return interaction.editReply({
-                                    content: "❌ Erro ao criar pagamento."
+                                    content:
+                                        "❌ Erro ao criar pagamento."
                                 });
                             }
 
-                            const pagamentoId = this.lastID;
+                            const pagamentoId =
+                                this.lastID;
 
-                            const placeholders = numeros
-                                .map(() => "?")
-                                .join(",");
+                            const ids =
+                                numerosBanco.map(
+                                    numero =>
+                                        numero.id
+                                );
 
-                            const ids = numeros.map(
-                                (numero) => numero.id
-                            );
+                            const idsPlaceholders =
+                                ids
+                                    .map(() => "?")
+                                    .join(",");
 
                             db.run(
                                 `
@@ -117,8 +190,9 @@ module.exports = async (client, interaction) => {
                                     pagamento_id=?,
                                     status='reservado',
                                     reservado_em=datetime('now')
-                                WHERE id IN (${placeholders})
-                                AND status='livre'
+                                WHERE
+                                    id IN (${idsPlaceholders})
+                                    AND status='livre'
                                 `,
                                 [
                                     interaction.user.id,
@@ -139,11 +213,15 @@ module.exports = async (client, interaction) => {
                                         );
 
                                         return interaction.editReply({
-                                            content: "❌ Erro ao reservar números."
+                                            content:
+                                                "❌ Erro ao reservar números."
                                         });
                                     }
 
-                                    if (this.changes !== quantidade) {
+                                    if (
+                                        this.changes !==
+                                        quantidade
+                                    ) {
                                         db.run(
                                             `
                                             UPDATE numeros
@@ -166,21 +244,28 @@ module.exports = async (client, interaction) => {
                                         );
 
                                         return interaction.editReply({
-                                            content: "❌ Alguns números acabaram de ser reservados."
+                                            content:
+                                                "❌ Um dos números acabou de ser reservado por outra pessoa. Tente novamente."
                                         });
                                     }
 
                                     db.run(
                                         `
                                         UPDATE rifas
-                                        SET vendidos = vendidos + ?
+                                        SET vendidos =
+                                            vendidos + ?
                                         WHERE id=?
                                         `,
-                                        [quantidade, rifaId]
+                                        [
+                                            quantidade,
+                                            rifaId
+                                        ]
                                     );
 
                                     try {
-                                        const guild = interaction.guild;
+
+                                        const guild =
+                                            interaction.guild;
 
                                         const permissoes = [
                                             {
@@ -190,7 +275,8 @@ module.exports = async (client, interaction) => {
                                                 ]
                                             },
                                             {
-                                                id: interaction.user.id,
+                                                id:
+                                                    interaction.user.id,
                                                 allow: [
                                                     PermissionFlagsBits.ViewChannel,
                                                     PermissionFlagsBits.SendMessages,
@@ -199,7 +285,8 @@ module.exports = async (client, interaction) => {
                                                 ]
                                             },
                                             {
-                                                id: client.user.id,
+                                                id:
+                                                    client.user.id,
                                                 allow: [
                                                     PermissionFlagsBits.ViewChannel,
                                                     PermissionFlagsBits.SendMessages,
@@ -210,9 +297,12 @@ module.exports = async (client, interaction) => {
                                             }
                                         ];
 
-                                        if (process.env.CARGO_ADMIN) {
+                                        if (
+                                            process.env.CARGO_ADMIN
+                                        ) {
                                             permissoes.push({
-                                                id: process.env.CARGO_ADMIN,
+                                                id:
+                                                    process.env.CARGO_ADMIN,
                                                 allow: [
                                                     PermissionFlagsBits.ViewChannel,
                                                     PermissionFlagsBits.SendMessages,
@@ -223,16 +313,20 @@ module.exports = async (client, interaction) => {
                                             });
                                         }
 
-                                        const canal = await guild.channels.create({
-                                            name: `pagamento-${pagamentoId}`,
-                                            type: ChannelType.GuildText,
-                                            parent:
-                                                process.env.CATEGORIA_TICKETS ||
-                                                null,
-                                            topic:
-                                                `pagamento:${pagamentoId}|usuario:${interaction.user.id}`,
-                                            permissionOverwrites: permissoes
-                                        });
+                                        const canal =
+                                            await guild.channels.create({
+                                                name:
+                                                    `pagamento-${pagamentoId}`,
+                                                type:
+                                                    ChannelType.GuildText,
+                                                parent:
+                                                    process.env.CATEGORIA_TICKETS ||
+                                                    null,
+                                                topic:
+                                                    `pagamento:${pagamentoId}|usuario:${interaction.user.id}`,
+                                                permissionOverwrites:
+                                                    permissoes
+                                            });
 
                                         db.run(
                                             `
@@ -246,14 +340,21 @@ module.exports = async (client, interaction) => {
                                             ]
                                         );
 
-                                        const lista = numeros
-                                            .map((item) =>
-                                                String(item.numero).padStart(
-                                                    3,
-                                                    "0"
+                                        const lista =
+                                            numerosEscolhidos
+                                                .sort(
+                                                    (a, b) =>
+                                                        a - b
                                                 )
-                                            )
-                                            .join(", ");
+                                                .map(
+                                                    numero =>
+                                                        String(numero)
+                                                            .padStart(
+                                                                3,
+                                                                "0"
+                                                            )
+                                                )
+                                                .join(", ");
 
                                         await canal.send({
                                             content:
@@ -263,8 +364,10 @@ module.exports = async (client, interaction) => {
 
 🎁 **Rifa:** ${rifa.premio}
 
-🎟️ **Números reservados:**
+🎟️ **Números escolhidos:**
 ${lista}
+
+📦 **Quantidade:** ${quantidade}
 
 💰 **Valor:**
 R$ ${valorTotal.toFixed(2).replace(".", ",")}
@@ -281,10 +384,12 @@ R$ ${valorTotal.toFixed(2).replace(".", ",")}
 
                                         return interaction.editReply({
                                             content:
-`✅ Compra reservada.
+`✅ Números reservados com sucesso.
 
-🎟️ **Números:**
+🎟️ **Seus números:**
 ${lista}
+
+📦 **Quantidade:** ${quantidade}
 
 💰 **Total:**
 R$ ${valorTotal.toFixed(2).replace(".", ",")}
@@ -294,6 +399,7 @@ ${canal}`
                                         });
 
                                     } catch (error) {
+
                                         console.error(error);
 
                                         db.run(
@@ -312,10 +418,17 @@ ${canal}`
                                         db.run(
                                             `
                                             UPDATE rifas
-                                            SET vendidos = MAX(vendidos - ?, 0)
+                                            SET vendidos =
+                                                MAX(
+                                                    vendidos - ?,
+                                                    0
+                                                )
                                             WHERE id=?
                                             `,
-                                            [quantidade, rifaId]
+                                            [
+                                                quantidade,
+                                                rifaId
+                                            ]
                                         );
 
                                         db.run(
@@ -327,10 +440,14 @@ ${canal}`
                                             [pagamentoId]
                                         );
 
-                                        atualizarEmbed(client, rifaId);
+                                        atualizarEmbed(
+                                            client,
+                                            rifaId
+                                        );
 
                                         return interaction.editReply({
-                                            content: "❌ Não foi possível criar o ticket."
+                                            content:
+                                                "❌ Não foi possível criar o ticket."
                                         });
                                     }
                                 }
