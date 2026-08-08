@@ -3,7 +3,9 @@ require("dotenv").config();
 const {
     Client,
     GatewayIntentBits,
-    Events
+    Events,
+    REST,
+    Routes
 } = require("discord.js");
 
 const registrarComandos = require("./commands");
