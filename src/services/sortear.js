@@ -71,7 +71,6 @@ module.exports = (client, interaction) => {
                 });
             }
 
-            // Impede sortear novamente
             if (rifa.status === "finalizada") {
                 return interaction.reply({
                     content: "❌ Essa rifa já foi sorteada.",
@@ -118,9 +117,7 @@ module.exports = (client, interaction) => {
                         )
                     );
 
-                    // Meta ainda não atingida
                     if (pagos < meta) {
-
                         return interaction.reply({
                             content:
                                 `❌ O sorteio ainda não foi liberado.\n\n` +
@@ -132,8 +129,8 @@ module.exports = (client, interaction) => {
                         });
                     }
 
-                    // SORTEIA SOMENTE NÚMEROS PAGOS
-                    db.get(
+                    // Busca todos os números pagos em ordem aleatória
+                    db.all(
                         `
                         SELECT *
                         FROM numeros
@@ -141,10 +138,9 @@ module.exports = (client, interaction) => {
                             rifa_id=?
                             AND status='pago'
                         ORDER BY RANDOM()
-                        LIMIT 1
                         `,
                         [rifaId],
-                        async (err, numero) => {
+                        async (err, numeros) => {
 
                             if (err) {
                                 console.error(err);
@@ -155,26 +151,91 @@ module.exports = (client, interaction) => {
                                 });
                             }
 
-                            if (!numero) {
+                            if (!numeros || numeros.length < 3) {
                                 return interaction.reply({
-                                    content: "❌ Não há números pagos para sortear.",
+                                    content:
+                                        "❌ É necessário ter pelo menos 3 números pagos para sortear 3 vencedores.",
                                     flags: MessageFlags.Ephemeral
                                 });
                             }
 
-                            const usuario =
-                                await client.users
-                                    .fetch(
+                            const vencedores = [];
+                            const usuariosJaEscolhidos =
+                                new Set();
+
+                            for (const numero of numeros) {
+
+                                if (
+                                    usuariosJaEscolhidos.has(
                                         numero.usuario_id
                                     )
-                                    .catch(() => null);
+                                ) {
+                                    continue;
+                                }
 
-                            if (!usuario) {
+                                vencedores.push(numero);
+
+                                usuariosJaEscolhidos.add(
+                                    numero.usuario_id
+                                );
+
+                                if (vencedores.length === 3) {
+                                    break;
+                                }
+                            }
+
+                            if (vencedores.length < 3) {
                                 return interaction.reply({
-                                    content: "❌ Não foi possível localizar o vencedor.",
+                                    content:
+                                        "❌ É necessário ter pelo menos 3 compradores diferentes com números pagos para sortear 1º, 2º e 3º lugar.",
                                     flags: MessageFlags.Ephemeral
                                 });
                             }
+
+                            const usuarios = [];
+
+                            for (
+                                const vencedor of vencedores
+                            ) {
+                                const usuario =
+                                    await client.users
+                                        .fetch(
+                                            vencedor.usuario_id
+                                        )
+                                        .catch(() => null);
+
+                                usuarios.push(usuario);
+                            }
+
+                            if (
+                                usuarios.some(
+                                    usuario => !usuario
+                                )
+                            ) {
+                                return interaction.reply({
+                                    content:
+                                        "❌ Não foi possível localizar um dos vencedores.",
+                                    flags: MessageFlags.Ephemeral
+                                });
+                            }
+
+                            const primeiro =
+                                vencedores[0];
+
+                            const segundo =
+                                vencedores[1];
+
+                            const terceiro =
+                                vencedores[2];
+
+                            const usuarioPrimeiro =
+                                usuarios[0];
+
+                            const usuarioSegundo =
+                                usuarios[1];
+
+                            const usuarioTerceiro =
+                                usuarios[2];
 
                             const embed =
                                 new EmbedBuilder()
@@ -183,28 +244,50 @@ module.exports = (client, interaction) => {
                                         "🏆 Sorteio Finalizado"
                                     )
                                     .setDescription(
-                                        `🎉 Parabéns, <@${usuario.id}>!`
+                                        `🎉 A rifa **${rifa.premio}** foi sorteada!`
                                     )
                                     .addFields(
                                         {
-                                            name: "🎟 Número sorteado",
-                                            value: String(
-                                                numero.numero
-                                            ).padStart(
-                                                3,
-                                                "0"
-                                            ),
-                                            inline: true
+                                            name: "🥇 1º Lugar",
+                                            value:
+                                                `<@${usuarioPrimeiro.id}>\n` +
+                                                `🎟 Número: **${String(
+                                                    primeiro.numero
+                                                ).padStart(
+                                                    3,
+                                                    "0"
+                                                )}**`,
+                                            inline: false
                                         },
                                         {
-                                            name: "👤 Vencedor",
-                                            value: `<@${usuario.id}>`,
-                                            inline: true
+                                            name: "🥈 2º Lugar",
+                                            value:
+                                                `<@${usuarioSegundo.id}>\n` +
+                                                `🎟 Número: **${String(
+                                                    segundo.numero
+                                                ).padStart(
+                                                    3,
+                                                    "0"
+                                                )}**`,
+                                            inline: false
+                                        },
+                                        {
+                                            name: "🥉 3º Lugar",
+                                            value:
+                                                `<@${usuarioTerceiro.id}>\n` +
+                                                `🎟 Número: **${String(
+                                                    terceiro.numero
+                                                ).padStart(
+                                                    3,
+                                                    "0"
+                                                )}**`,
+                                            inline: false
                                         },
                                         {
                                             name: "🎯 Meta alcançada",
-                                            value: `${pagos}/${meta}`,
-                                            inline: true
+                                            value:
+                                                `${pagos}/${meta}`,
+                                            inline: false
                                         }
                                     )
                                     .setFooter({
@@ -219,7 +302,7 @@ module.exports = (client, interaction) => {
                                 WHERE id=?
                                 `,
                                 [rifaId],
-                                (err) => {
+                                err => {
 
                                     if (err) {
                                         console.error(err);
