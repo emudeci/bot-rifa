@@ -57,15 +57,16 @@ module.exports = async (client, interaction) => {
                 .setCustomId(`modal_comprar_${rifaId}`)
                 .setTitle("Comprar números");
 
-            const quantidade = new TextInputBuilder()
-                .setCustomId("quantidade")
-                .setLabel("Quantidade")
-                .setStyle(TextInputStyle.Short)
-                .setRequired(true);
+            const numeros = new TextInputBuilder()
+    .setCustomId("numeros")
+    .setLabel("Escolha os números")
+    .setPlaceholder("Ex: 15, 28, 104, 587")
+    .setStyle(TextInputStyle.Paragraph)
+    .setRequired(true);
 
-            modal.addComponents(
-                new ActionRowBuilder().addComponents(quantidade)
-            );
+modal.addComponents(
+    new ActionRowBuilder().addComponents(numeros)
+);
 
             return interaction.showModal(modal);
         }
