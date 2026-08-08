@@ -126,20 +126,26 @@ module.exports = async (client, rifaId) => {
                         })
                         .setTimestamp();
 
-                    const row =
-                        new ActionRowBuilder().addComponents(
-                            new ButtonBuilder()
-                                .setCustomId(`comprar_${rifa.id}`)
-                                .setLabel("Comprar")
-                                .setEmoji("🎟")
-                                .setStyle(ButtonStyle.Success),
+                   const row =
+    new ActionRowBuilder().addComponents(
+        new ButtonBuilder()
+            .setCustomId(`comprar_${rifa.id}`)
+            .setLabel("Comprar")
+            .setEmoji("🎟")
+            .setStyle(ButtonStyle.Success),
 
-                            new ButtonBuilder()
-                                .setCustomId(`comprovante_${rifa.id}`)
-                                .setLabel("Enviar Comprovante")
-                                .setEmoji("📄")
-                                .setStyle(ButtonStyle.Primary)
-                        );
+        new ButtonBuilder()
+            .setCustomId(`disponiveis_${rifa.id}_1`)
+            .setLabel("Ver disponíveis")
+            .setEmoji("🔎")
+            .setStyle(ButtonStyle.Secondary),
+
+        new ButtonBuilder()
+            .setCustomId(`comprovante_${rifa.id}`)
+            .setLabel("Enviar Comprovante")
+            .setEmoji("📄")
+            .setStyle(ButtonStyle.Primary)
+    );
 
                     await mensagem.edit({
                         embeds: [embed],
