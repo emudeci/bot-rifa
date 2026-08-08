@@ -3,9 +3,7 @@ require("dotenv").config();
 const {
     Client,
     GatewayIntentBits,
-    Events,
-    REST,
-    Routes
+    Events
 } = require("discord.js");
 
 const registrarComandos = require("./commands");
@@ -24,23 +22,6 @@ client.once(Events.ClientReady, async () => {
 
     console.log(`✅ ${client.user.tag} online`);
 
-    // REMOVE COMANDOS GLOBAIS ANTIGOS
-    const rest = new REST({
-        version: "10"
-    }).setToken(process.env.TOKEN);
-
-    await rest.put(
-        Routes.applicationCommands(
-            process.env.CLIENT_ID
-        ),
-        {
-            body: []
-        }
-    );
-
-    console.log("🧹 Comandos globais antigos removidos");
-
-    // REGISTRA OS COMANDOS ATUAIS DO SERVIDOR
     await registrarComandos();
 
     console.log("✅ Slash Commands registrados");
