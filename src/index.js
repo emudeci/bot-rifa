@@ -24,6 +24,13 @@ client.once(Events.ClientReady, async () => {
     await registrarComandos();
 
     console.log("✅ Slash Commands registrados");
+    const {
+    Client,
+    GatewayIntentBits,
+    Events,
+    REST,
+    Routes
+} = require("discord.js");
 });
 
 client.on(
