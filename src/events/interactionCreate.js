@@ -17,6 +17,7 @@ const recusarPagamento = require("../services/recusarPagamento");
 const cancelarReserva = require("../services/cancelarReserva");
 const configurarMeta = require("../services/configurarMeta");
 const painelAdmin = require("../services/painelAdmin");
+const numerosDisponiveis = require("../services/numerosDisponiveis");
 
 module.exports = async (client, interaction) => {
 
@@ -48,7 +49,9 @@ module.exports = async (client, interaction) => {
                 flags: MessageFlags.Ephemeral
             });
         }
-
+        if (interaction.customId.startsWith("disponiveis_")) {
+    return numerosDisponiveis(client, interaction);
+}
         if (interaction.customId.startsWith("comprar_")) {
 
             const rifaId = interaction.customId.split("_")[1];
